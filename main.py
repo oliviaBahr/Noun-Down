@@ -1,14 +1,13 @@
 from transformers import pipeline  # type: ignore
-import csv
 from tqdm import tqdm
-from typing import Callable, List, Dict, TypedDict, Optional, Union
+from typing import Callable, List, Dict, TypedDict, Optional
 import pandas as pd
 import inflect
 
 from pluralizer import Pluralizer  # type: ignore
 
 plural = Pluralizer.pluralize
-inflect = inflect.engine()  # type: ignore
+flect = inflect.engine()  # type: ignore
 
 TestFunction = Callable[[str], str]
 HeuristicFunction = Callable[[str], bool]
@@ -28,7 +27,7 @@ TESTS: Dict[str, List[TestFunction]] = {
         lambda noun: f"The {noun} occurred unexpectedly",
     ],
     "Pluralia Tantum": [
-        lambda noun: f"{inflect.a(noun)}",
+        lambda noun: f"{flect.a(noun)}",
         lambda noun: f"One {noun} was enough",
     ],
     "Animate/Inanimate": [
@@ -47,8 +46,8 @@ TESTS: Dict[str, List[TestFunction]] = {
     # ],
     "Common": [lambda noun: f"The {noun} is useful", lambda noun: f"Any {noun} will do"],
     "Count": [
-        lambda noun: f"One {noun}, two {inflect.plural_noun(noun)}",
-        lambda noun: f"Several {inflect.plural_noun(noun)} were counted",
+        lambda noun: f"One {noun}, two {flect.plural_noun(noun)}",
+        lambda noun: f"Several {flect.plural_noun(noun)} were counted",
     ],
     "Mass": [
         lambda noun: f"Some {noun} was left",
