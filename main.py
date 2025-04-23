@@ -53,6 +53,9 @@ TESTS: Dict[str, List[TestFunction]] = {
         lambda noun: f"Some {noun} was left",
         lambda noun: f"How many {noun} are there",
     ],
+    "Verbalizable": [
+        lambda noun: f"I am able to{noun}",
+    ],
 }
 
 TestConfig = TypedDict("TestConfig", {"positive": bool, "heuristic": Optional[HeuristicFunction]})
