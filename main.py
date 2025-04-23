@@ -54,7 +54,7 @@ TESTS: Dict[str, List[TestFunction]] = {
         lambda noun: f"How many {noun} are there",
     ],
     "Verbalizable": [
-        lambda noun: f"I am able to{noun}",
+        lambda noun: f"I am able to {noun}",
     ],
 }
 
