@@ -6,27 +6,6 @@ import json
 
 load_dotenv("env.env")
 
-# sys_prompt = """
-# You are a Coherence Classifier AI. Your job is to decide if an input sentence is coherent (makes sense semantically).
-
-# When given a sentence, do the following:
-
-# 1. **Thought:** Output a single line beginning with "Thought:" containing your internal reasoning in no more than 20 words.
-# 2. **JSON result:** On the next line, output exactly one JSON object with a single field:
-#    - `"coherent"`: use `1` if the sentence is semantically coherent, or `0` if not.
-
-# Do not output anything else.
-
-# Example interaction:
-
-# **User:**
-# I touched the idea.
-
-# **Assistant:**
-# Thought: "Touched" implies physical contact, which doesn't apply to an abstract concept.
-# {"coherent":0}
-# """
-
 sys_prompt = """
 You are a Coherence Classifier AI. Your job is to decide if an input sentence is semantically coherent.
 
