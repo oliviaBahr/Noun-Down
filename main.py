@@ -1,149 +1,284 @@
-from transformers import pipeline  # type: ignore
+###
+# 0 is ungramamtical/incoherent
+# 1 is grammatical/coherent
+###
+
+from transformers import pipeline, logging  # type: ignore
 from tqdm import tqdm
-from typing import Callable, List, Dict, TypedDict, Optional
+from typing import Callable, List, Dict, Literal
 import pandas as pd
-import inflect
+from inflect import engine
+from dataclasses import dataclass, field
 
 from pluralizer import Pluralizer  # type: ignore
 
+logging.set_verbosity_error()
+
 plural = Pluralizer.pluralize
-flect = inflect.engine()  # type: ignore
+inflect = engine()  # type: ignore
 
+Prediction = Dict[str, float]
+PredictionMulti = Dict[str, List[float]]
 TestFunction = Callable[[str], str]
-HeuristicFunction = Callable[[str], bool]
+ScoreFunction = Callable[[Prediction], float]
 
 
-def get_nouns(filename: str) -> list[str]:
+def get_nouns(filename: str) -> List[str]:
     with open(filename, "r") as file:
         return [line.strip() for line in file if line.strip()]
 
 
-TESTS: Dict[str, List[TestFunction]] = {
-    # "Agentive": [
-    #     lambda noun: f"The {noun} did his job",
-    # ],
-    "Eventive": [
-        lambda noun: f"The {noun} took a long time",
-        lambda noun: f"The {noun} occurred unexpectedly",
-    ],
-    "Pluralia Tantum": [
-        lambda noun: f"{flect.a(noun)}",
-        lambda noun: f"One {noun} was enough",
-    ],
-    "Animate/Inanimate": [
-        lambda noun: f"The {noun} lives",
-        lambda noun: f"The {noun} was asked a question",
-        lambda noun: f"The {noun} eats daily",
-    ],
-    "Collective": [
-        lambda noun: f"This {noun} consists of many members",
-        lambda noun: f"The {noun} gathered together",
-    ],
-    # not very reliable
-    # "Concrete/Abstract": [
-    #     lambda noun: f"I can see a {noun}",
-    #     lambda noun: f"You can touch the {noun}",
-    # ],
-    "Common": [lambda noun: f"The {noun} is useful", lambda noun: f"Any {noun} will do"],
-    "Count": [
-        lambda noun: f"One {noun}, two {flect.plural_noun(noun)}",
-        lambda noun: f"Several {flect.plural_noun(noun)} were counted",
-    ],
-    "Mass": [
-        lambda noun: f"Some {noun} was left",
-        lambda noun: f"How many {noun} are there",
-    ],
-    "Verbalizable": [
-        lambda noun: f"I am able to {noun}",
-    ],
-}
-
-TestConfig = TypedDict("TestConfig", {"positive": bool, "heuristic": Optional[HeuristicFunction]})
-
-# Configuration for whether passing each test should add or subtract points
-TEST_CONFIG: Dict[str, TestConfig] = {
-    # "Agentive": {"positive": True, "heuristic": is_agentive},
-    "Eventive": {"positive": True, "heuristic": None},
-    "Pluralia Tantum": {"positive": True, "heuristic": None},
-    "Animate/Inanimate": {"positive": True, "heuristic": None},
-    "Collective": {"positive": True, "heuristic": None},
-    "Common": {"positive": True, "heuristic": None},
-    "Count": {"positive": True, "heuristic": None},
-    "Mass": {"positive": True, "heuristic": None},
-}
+@dataclass
+class ScoringConfig:
+    polarity: Literal["reward", "punish"] = "reward"
+    labels: List[str] = field(default_factory=lambda: ["grammatical"])
+    combination_mode: Literal["mean", "sum"] = "mean"
 
 
-def calculate_score(
-    prediction: Dict[str, float], test_config: TestConfig, noun: Optional[str] = None
-) -> float:
-    # Use heuristic if available
-    if test_config["heuristic"] is not None and noun is not None:
-        return 0.8 if test_config["heuristic"](noun) else -0.8
-
-    score = prediction["score"]
-    if prediction["label"] == "LABEL_1":  # Test passed
-        return score if test_config["positive"] else -score
-    else:  # Test failed
-        return -score if test_config["positive"] else score
+@dataclass
+class NounTest:
+    test_type: str
+    pipeline: Literal["grammar", "zero-shot"] = "grammar"
+    label_candidates: List[str] = field(default_factory=lambda: ["grammatical", "ungrammatical"])
+    scoring_config: ScoringConfig = field(default_factory=lambda: ScoringConfig())
+    test_funcs: List[TestFunction] = field(default_factory=lambda: [lambda noun: str(noun)])
 
 
-def main():
-    nouns = get_nouns("nounlist.txt")
-    classifier = pipeline("text-classification", model="textattack/roberta-base-CoLA")
+NOUN_TESTS: List[NounTest] = [
+    NounTest(
+        test_type="Eventive",
+        test_funcs=[
+            lambda noun: f"The {noun} took a long time",
+            lambda noun: f"The {noun} occurred unexpectedly",
+        ],
+    ),
+    NounTest(
+        test_type="Pluralia Tantum",
+        scoring_config=ScoringConfig("punish", ["ungrammatical"]),
+        test_funcs=[
+            lambda noun: f"The {noun} is hers",
+        ],
+    ),
+    NounTest(
+        test_type="Singularia Tantum",
+        scoring_config=ScoringConfig("punish", ["ungrammatical"]),
+        test_funcs=[
+            lambda noun: f"Various {inflect.plural_noun(noun)} are possible",
+        ],
+    ),
+    NounTest(
+        test_type="Collective",
+        test_funcs=[
+            lambda noun: f"This {noun} consists of many members",
+            lambda noun: f"The {noun} gathered together",
+        ],
+    ),
+    NounTest(
+        test_type="Common",
+        test_funcs=[
+            lambda noun: f"The {noun} is useful",
+            lambda noun: f"Any {noun} will do",
+        ],
+    ),
+    NounTest(
+        test_type="Count",
+        test_funcs=[
+            lambda noun: f"One {noun}, two {inflect.plural_noun(noun)}",
+            lambda noun: f"Several {inflect.plural_noun(noun)} were counted",
+        ],
+    ),
+    NounTest(
+        test_type="Mass",
+        test_funcs=[
+            lambda noun: f"Some {noun} was left",
+            lambda noun: f"How many {noun} are there",
+        ],
+    ),
+    NounTest(  # punish if verb. punish more if both transitive and intransitive
+        test_type="Verbalizable",
+        test_funcs=[
+            lambda noun: f"John loves to {noun} all the time",
+            lambda noun: f"I want to {noun} this thing",
+            lambda noun: f"I will {noun} her something tomorrow",
+        ],
+        scoring_config=ScoringConfig("punish", ["grammatical"], combination_mode="sum"),
+    ),
+    NounTest(
+        test_type="Derived",
+        pipeline="zero-shot",
+        scoring_config=ScoringConfig("reward", ["word without suffix"]),
+        label_candidates=["word with suffix", "word without suffix"],
+    ),
+    NounTest(
+        test_type="Usually Verb",
+        pipeline="zero-shot",
+        scoring_config=ScoringConfig("punish", ["can be verb"]),
+        label_candidates=["cannot be verb", "can be verb"],
+    ),
+]
 
-    # Create empty DataFrame with appropriate columns
-    columns = ["noun"]
-    for category in TESTS.keys():
-        for i in range(len(TESTS[category])):
-            columns.append(f"{category}_{i+1}")
-    columns.append("total_score")  # Add column for total score
 
-    df = pd.DataFrame(columns=columns)
+class Tester:
+    def __init__(self, input: str | List[str], n_nouns: int = 0):
+        nouns = input if isinstance(input, list) else get_nouns(input)
+        end = n_nouns if n_nouns > 0 else len(nouns)
+        self.nouns = nouns[:end]
+        self.classifiers = {
+            "grammar": pipeline(
+                task="text-classification",
+                model="textattack/roberta-base-CoLA",
+                model_kwargs={"id2label": {0: "ungrammatical", 1: "grammatical"}},
+            ),
+            "zero-shot": pipeline(
+                task="zero-shot-classification",
+                model="roberta-large-mnli",
+            ),
+        }
 
-    for noun in tqdm(nouns, desc="Processing nouns"):
-        entry = {"noun": noun}
-        category_scores = {}  # Store average scores for each category
+    def whole_shebang(self):
+        test_cases_df = self.generate_test_cases()
+        predictions_df = self.run_test_cases(test_cases_df)
+        results_df = self.score_tests(predictions_df)
+        summary_df = self.calc_and_save_results(results_df)
+        self.print_summary(summary_df)
 
-        for label, test_functions in TESTS.items():
-            category_score = 0.0
-            for i, test_func in enumerate(test_functions):
-                sentence = test_func(noun)
-                prediction = classifier(sentence)[0]
-                score = calculate_score(prediction, TEST_CONFIG[label], noun)
-                category_score += score
-                entry[f"{label}_{i+1}"] = f"{score:.2f}"
+    def print_summary(self, summary_df: pd.DataFrame) -> None:
+        print("Most nouny nouns:")
+        print(summary_df.sort_values(by="total", ascending=False).head(10))
+        print("Least nouny nouns 👎👎👎:")
+        print(summary_df.sort_values(by="total", ascending=True).head(10))
 
-            # Calculate average score for this category
-            category_scores[label] = category_score / len(test_functions)
+    def generate_test_cases(self) -> pd.DataFrame:
+        print(f"Generating test cases for {len(self.nouns)} nouns")
+        rows = []
+        for noun in self.nouns:
+            for test in NOUN_TESTS:
+                for i, test_func in enumerate(test.test_funcs):
+                    rows.append(
+                        {
+                            "noun": noun,
+                            "test_type": test.test_type,
+                            "test_id": f"{test.test_type}_{i}",
+                            "input_sentence": test_func(noun),
+                            "pipeline": test.pipeline,
+                            "label_candidates": test.label_candidates,
+                            "scoring_config": test.scoring_config,
+                        }
+                    )
+        return pd.DataFrame(rows)
 
-        # Calculate total score as average of category scores
-        total_score = sum(category_scores.values()) / len(category_scores)
-        entry["total_score"] = f"{total_score:.2f}"
+    def run_test_cases(self, test_cases_df: pd.DataFrame) -> pd.DataFrame:
+        print(f"Running {len(test_cases_df)} test cases")
 
-        # Append the new entry to the DataFrame
-        df = pd.concat([df, pd.DataFrame([entry])], ignore_index=True)
+        # List to store all results
+        all_results = []
 
-    save_results(df)
+        # Convert label_candidates lists to tuples for grouping
+        tmp = test_cases_df.copy(deep=True)
+        tmp["label_candidates"] = tmp["label_candidates"].apply(lambda x: tuple(x))
 
+        pipe_groups = tqdm(
+            tmp.groupby(["test_type", "label_candidates", "pipeline"]),
+            desc="Test Groups",
+            position=1,
+            colour="green",
+        )
+        for (test_type, labels_tuple, pipeline), group in pipe_groups:
 
-def save_results(df: pd.DataFrame):
-    # Save to CSV
-    df.to_csv("noun_classification_results.csv", index=False)
-    print("Done! Results saved to noun_classification_results.csv")
+            sentences = group["input_sentence"].values.tolist()
+            input_data = iter(tqdm(sentences, desc=f"{test_type:17}", position=0, smoothing=1))
 
-    # Convert total_score to float for sorting
-    df["total_score"] = df["total_score"].astype(float)
+            classifier = self.classifiers[pipeline]
+            kwargs = {"candidate_labels": list(labels_tuple)} if pipeline == "zero-shot" else {}
 
-    # Sort by total_score
-    sorted_df = df.sort_values("total_score", ascending=False)
+            # do the classification
+            preds = classifier(input_data, batch_size=128, **kwargs)
 
-    # Display top and bottom results
-    print("\nTop 10 Results:")
-    print(sorted_df[["noun", "total_score"]].head(10).to_string(index=False))
+            for pred, idx in zip(preds, group.index):
+                row = test_cases_df.iloc[idx].to_dict()  # Get original row data
 
-    print("\nBottom 10 Results:")
-    print(sorted_df[["noun", "total_score"]].tail(10).to_string(index=False))
+                # Add predictions
+                row["pred_labels"] = pred["labels"] if "labels" in pred else [pred["label"]]
+                row["pred_scores"] = pred["scores"] if "scores" in pred else [pred["score"]]
+
+                all_results.append(row)
+
+        return pd.DataFrame(all_results)
+
+    def score_tests(self, predictions_df: pd.DataFrame) -> pd.DataFrame:
+        print(f"Scoring {len(predictions_df)} tests")
+        results = []
+        for _, row in predictions_df.iterrows():
+            # get scoring config
+            scoring_config = row["scoring_config"]
+
+            # filter predictions
+            predictions = zip(row["pred_labels"], row["pred_scores"])
+            counted_predictions = list(
+                filter(lambda ls: ls[0] in scoring_config.labels and ls[1] >= 0.5, predictions)
+            )
+            assert len(counted_predictions) <= 1, f"Multiple positive labels: {row['pred_labels']}"
+
+            # calculate score
+            row = row.copy()
+            score = counted_predictions[0][1] if counted_predictions else 0
+            polarity = 1 if scoring_config.polarity == "reward" else -1
+            row["score"] = polarity * score
+
+            results.append(row)
+
+        df = pd.DataFrame(results).pivot(index="noun", columns="test_id", values="score").fillna(0)
+        return df
+
+    def calc_and_save_results(self, results_df: pd.DataFrame | None = None) -> pd.DataFrame:
+        print("Calculating and saving results")
+        if results_df is None:
+            results_df = pd.read_csv("scored_test_results.csv", index_col="noun")
+
+        # scores by test type
+        test_type_scores = self.aggregate_test_type_scores(results_df)
+        detailed = pd.concat([results_df, test_type_scores], axis=1)
+
+        # total score
+        score_cols = [col for col in detailed.columns if not col[-1].isdigit() and col != "noun"]
+        detailed["total"] = detailed[score_cols].sum(axis=1)
+
+        # Reorder columns: total first, then the rest alphabetically
+        cols = ["total"] + sorted([col for col in detailed.columns if col != "total"])
+        detailed = detailed[cols]
+
+        # remove cols for individual tests
+        test_cols = [col for col in detailed.columns if col[-1].isdigit()]
+        summary = detailed.drop(columns=test_cols)
+
+        detailed.to_csv("results_detailed.csv", float_format="%.8f")
+        summary.to_csv("results_summary.csv", float_format="%.8f")
+        return summary
+
+    def aggregate_test_type_scores(self, results_df: pd.DataFrame) -> pd.DataFrame:
+        # only keep numeric columns
+        score_cols = [
+            col for col in results_df.columns if pd.api.types.is_numeric_dtype(results_df[col])
+        ]
+
+        # scoring config
+        test_type_map = {col: col.split("_")[0] for col in score_cols}
+        agg_funcs = {test.test_type: test.scoring_config.combination_mode for test in NOUN_TESTS}
+        agg_func_map = {"mean": pd.DataFrame.mean, "sum": pd.DataFrame.sum}
+
+        # the math
+        agg_results = {}
+        for test_type in set(test_type_map.values()):
+            cols = [col for col, ttype in test_type_map.items() if ttype == test_type]
+            if not cols:
+                continue
+            func_name = agg_funcs.get(test_type, "mean")
+            func = agg_func_map[func_name]
+            agg_results[f"{test_type}"] = func(results_df[cols], axis=1)
+
+        return pd.DataFrame(agg_results, index=results_df.index)
 
 
 if __name__ == "__main__":
-    main()
+    tester = Tester("nounlist.txt")
+    tester.whole_shebang()
