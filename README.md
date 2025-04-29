@@ -21,3 +21,51 @@ print(pluralizer.pluralize("furniture"))
 
 Inflections
 https://github.com/jaraco/inflect
+
+## Visualizations
+
+### General statistics of the nouns
+
+#### a) Make the installation script executable.
+
+```bash
+chmod +x install_dependencies.sh
+```
+
+#### b) Install the necessary dependencies.
+
+```bash
+./install_dependencies.sh
+```
+
+#### c) Activate the virtual environment:
+
+```bash
+source venv/bin/activate
+```
+
+#### d) Run the visualization script:
+
+```bash
+python visualizations.py
+```
+
+#### e) When prompted, enter the column name you want to visualize.
+
+#### f) Deactivate the virtual environment.
+
+```bash
+deactivate
+```
+
+### K-means 
+
+Repeat steps a) - c)
+
+#### d) Run the visualization script:
+
+```bash
+python kmeans_visualization.py
+```
+
+Repeat steps e) & f)
