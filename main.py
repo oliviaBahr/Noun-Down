@@ -56,14 +56,16 @@ NOUN_TESTS: List[NounTest] = [
         test_type="Pluralia Tantum",
         scoring_config=ScoringConfig("punish", ["ungrammatical"]),
         test_funcs=[
-            lambda noun: f"The {noun} is hers",
+            lambda noun: f"That {noun} is hers",
+            lambda noun: f"That {noun} belongs to her",
         ],
     ),
     NounTest(
         test_type="Singularia Tantum",
         scoring_config=ScoringConfig("punish", ["ungrammatical"]),
         test_funcs=[
-            lambda noun: f"Various {inflect.plural_noun(noun)} are possible",
+            lambda noun: f"Those {inflect.plural_noun(noun)} are hers",
+            lambda noun: f"Those {inflect.plural_noun(noun)} belong to her",
         ],
     ),
     NounTest(
@@ -76,7 +78,7 @@ NOUN_TESTS: List[NounTest] = [
     NounTest(
         test_type="Common",
         test_funcs=[
-            lambda noun: f"The {noun} is useful",
+            lambda noun: f"{inflect.a(noun)} is useful",
             lambda noun: f"Any {noun} will do",
         ],
     ),
@@ -106,14 +108,20 @@ NOUN_TESTS: List[NounTest] = [
     NounTest(
         test_type="Derived",
         pipeline="zero-shot",
-        scoring_config=ScoringConfig("reward", ["word without suffix"]),
-        label_candidates=["word with suffix", "word without suffix"],
+        scoring_config=ScoringConfig("reward", ["no_suffix"]),
+        label_candidates=["contains_suffix", "no_suffix"],
+        test_funcs=[
+            lambda noun: f"Input word: {noun}",
+        ],
     ),
     NounTest(
         test_type="Usually Verb",
         pipeline="zero-shot",
-        scoring_config=ScoringConfig("punish", ["can be verb"]),
-        label_candidates=["cannot be verb", "can be verb"],
+        scoring_config=ScoringConfig("punish", ["usually_verb"]),
+        label_candidates=["usually_verb", "usually_noun"],
+        test_funcs=[
+            lambda noun: f"Is the input word usually a noun or usually a verb: {noun}",
+        ],
     ),
 ]
 
@@ -272,6 +280,4 @@ class Tester:
 
 if __name__ == "__main__":
     tester = Tester("nounlist.txt")
-    # tester.whole_shebang()
-    a = tester.calc_and_save_results()
-    tester.print_summary(a)
+    tester.whole_shebang()
