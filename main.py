@@ -227,58 +227,51 @@ class Tester:
 
             results.append(row)
 
-        df = pd.DataFrame(results).pivot(index="noun", columns="test_id", values="score").fillna(0)
+        df = pd.DataFrame(results)
+        df.to_csv("scored_test_results.csv")
         return df
 
     def calc_and_save_results(self, results_df: pd.DataFrame | None = None) -> pd.DataFrame:
         print("Calculating and saving results")
         if results_df is None:
-            results_df = pd.read_csv("scored_test_results.csv", index_col="noun")
+            results_df = pd.read_csv("scored_test_results.csv")
 
-        # scores by test type
-        test_type_scores = self.aggregate_test_type_scores(results_df)
-        detailed = pd.concat([results_df, test_type_scores], axis=1)
+        # Get aggregation function for each test type
+        agg_funcs = {test.test_type: test.scoring_config.combination_mode for test in NOUN_TESTS}
 
-        # total score
-        score_cols = [col for col in detailed.columns if not col[-1].isdigit() and col != "noun"]
-        detailed["total"] = detailed[score_cols].sum(axis=1)
+        # Group by noun and test_type, then aggregate using the appropriate function
+        test_scores = []
+        for test_type, func_name in agg_funcs.items():
+            scores = (
+                results_df[results_df["test_type"].str.startswith(test_type)]
+                .groupby("noun")["score"]
+                .agg(func_name)
+                .rename(test_type)
+            )
+            test_scores.append(scores)
 
-        # Reorder columns: total first, then the rest alphabetically
-        cols = ["total"] + sorted([col for col in detailed.columns if col != "total"])
-        detailed = detailed[cols]
+        # Combine all test type scores into one dataframe
+        summary = pd.concat(test_scores, axis=1).fillna(0).sort_index(axis=1)
 
-        # remove cols for individual tests
-        test_cols = [col for col in detailed.columns if col[-1].isdigit()]
-        summary = detailed.drop(columns=test_cols)
+        # add total score
+        summary.insert(0, "total", summary.sum(axis=1))
+        summary.to_csv("results_summary.csv", float_format="%.8f")
+
+        # Save both detailed (with individual test scores) and summary results
+        detailed = pd.concat(
+            [summary, results_df.pivot(index="noun", columns="test_id", values="score").fillna(0)],
+            axis=1,
+        )
 
         detailed.to_csv("results_detailed.csv", float_format="%.8f")
-        summary.to_csv("results_summary.csv", float_format="%.8f")
+
+        sorted_results = summary.sort_values("total", ascending=False)
+        sorted_results.to_csv("results_sorted.csv", float_format="%.8f")
         return summary
-
-    def aggregate_test_type_scores(self, results_df: pd.DataFrame) -> pd.DataFrame:
-        # only keep numeric columns
-        score_cols = [
-            col for col in results_df.columns if pd.api.types.is_numeric_dtype(results_df[col])
-        ]
-
-        # scoring config
-        test_type_map = {col: col.split("_")[0] for col in score_cols}
-        agg_funcs = {test.test_type: test.scoring_config.combination_mode for test in NOUN_TESTS}
-        agg_func_map = {"mean": pd.DataFrame.mean, "sum": pd.DataFrame.sum}
-
-        # the math
-        agg_results = {}
-        for test_type in set(test_type_map.values()):
-            cols = [col for col, ttype in test_type_map.items() if ttype == test_type]
-            if not cols:
-                continue
-            func_name = agg_funcs.get(test_type, "mean")
-            func = agg_func_map[func_name]
-            agg_results[f"{test_type}"] = func(results_df[cols], axis=1)
-
-        return pd.DataFrame(agg_results, index=results_df.index)
 
 
 if __name__ == "__main__":
     tester = Tester("nounlist.txt")
-    tester.whole_shebang()
+    # tester.whole_shebang()
+    a = tester.calc_and_save_results()
+    tester.print_summary(a)
