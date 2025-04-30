@@ -6,6 +6,7 @@ from sklearn.preprocessing import StandardScaler
 import seaborn as sns
 import os
 from typing import List, Tuple, Dict, Any, Optional, Union, Sequence
+import random
 
 
 def create_directory(dir_name: str) -> None:
@@ -59,7 +60,7 @@ def run_kmeans(data_scaled: np.ndarray, k: int) -> Tuple[KMeans, np.ndarray]:
 def create_cluster_visualization(
     df: pd.DataFrame, kmeans: KMeans, scaler: StandardScaler, k: int, output_dir: str
 ) -> None:
-    """Create and save visualization of clusters."""
+    """Create and save visualization of clusters with well-spaced labels."""
     # Sort by total value to create a more meaningful visualization
     df_sorted = df.sort_values("total")
     df_sorted["index"] = range(len(df_sorted))
@@ -87,24 +88,77 @@ def create_cluster_visualization(
     plt.legend()
     plt.grid(True, alpha=0.3)
 
-    # Add a few noun labels for context (select some from each cluster)
+    # Improved label placement to avoid overlap
+    # Dictionary to keep track of label positions to avoid overlap
+    label_positions = {}
+
+    # Function to check if a new label would overlap with existing ones
+    def would_overlap(x: int, y: float, margin: float = 0.1) -> bool:
+        for pos_x, pos_y in label_positions.values():
+            if abs(x - pos_x) < 150 and abs(y - pos_y) < margin:
+                return True
+        return False
+
+    # Select more distributed samples for each cluster
     for cluster_id in range(k):
         cluster_data = df_sorted[df_sorted["cluster"] == cluster_id]
-        # Get some sample nouns from each cluster (first, middle, last)
-        if len(cluster_data) > 0:
-            samples = [0, len(cluster_data) // 2, len(cluster_data) - 1]
-            for idx in samples:
-                if idx < len(cluster_data):
-                    sample = cluster_data.iloc[idx]
-                    plt.annotate(
-                        sample["noun"],
-                        (sample["index"], sample["total"]),
-                        xytext=(5, 5),
-                        textcoords="offset points",
-                    )
+
+        if len(cluster_data) == 0:
+            continue
+
+        # Define how many labels to show per cluster
+        num_labels = min(5, len(cluster_data))
+
+        if len(cluster_data) < num_labels:
+            indices = list(range(len(cluster_data)))
+        else:
+            # Select evenly distributed indices
+            step = len(cluster_data) // num_labels
+            indices = [i * step for i in range(num_labels)]
+
+        # Ensure the last element is included if we have enough data points
+        if len(cluster_data) > num_labels and indices[-1] != len(cluster_data) - 1:
+            indices[-1] = len(cluster_data) - 1
+
+        # Add small random offsets to make labels more visually distinct
+        for idx in indices:
+            if idx < len(cluster_data):
+                sample = cluster_data.iloc[idx]
+                x, y = sample["index"], sample["total"]
+
+                # Try to find a position that doesn't overlap
+                text_x, text_y = x, y
+                offset_y = 0
+
+                # Try different vertical offsets if the current position would overlap
+                for attempt in range(10):  # Try up to 10 different positions
+                    offset_y = random.uniform(
+                        -0.3, 0.3
+                    )  # Random offset between -0.3 and 0.3
+
+                    if not would_overlap(text_x, y + offset_y):
+                        break
+
+                # Register this label position
+                label_positions[sample["noun"]] = (text_x, y + offset_y)
+
+                # Add the label with the computed offset
+                plt.annotate(
+                    sample["noun"],
+                    (x, y),
+                    xytext=(
+                        10,
+                        5 + offset_y * 100,
+                    ),  # Convert relative offset to points
+                    textcoords="offset points",
+                    fontsize=9,
+                    bbox=dict(
+                        boxstyle="round,pad=0.3", fc="white", ec="gray", alpha=0.8
+                    ),
+                )
 
     plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, "kmeans_clustering.png"))
+    plt.savefig(os.path.join(output_dir, "kmeans_clustering.png"), dpi=300)
     plt.close()
 
 
@@ -128,6 +182,9 @@ def main() -> None:
     # Create output directory for visualizations
     output_dir: str = "noun_cluster_visualizations"
     create_directory(output_dir)
+
+    # Set seed for reproducibility
+    random.seed(42)
 
     # Load the CSV file
     df: pd.DataFrame = load_data("results.csv")
@@ -169,7 +226,7 @@ def main() -> None:
     plt.title("Distribution of Total Values by Cluster", fontsize=14)
     plt.legend()
     plt.grid(True, alpha=0.3)
-    plt.savefig(os.path.join(output_dir, "cluster_histograms.png"))
+    plt.savefig(os.path.join(output_dir, "cluster_histograms.png"), dpi=300)
     plt.close()
 
     print(f"\nVisualizations saved in directory: {output_dir}")
