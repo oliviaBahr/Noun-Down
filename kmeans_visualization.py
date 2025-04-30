@@ -17,10 +17,10 @@ from typing import List, Dict, Tuple
 
 def load_csv(file_path: str) -> pd.DataFrame:
     """
-    Load results_summary.csv file using pandas.
+    Load results.csv file using pandas.
 
     Args:
-        file_path: Path to the results_summary.csv file.
+        file_path: Path to the results.csv file.
 
     Returns:
         Loaded pandas DataFrame.
@@ -568,12 +568,12 @@ def generate_kmeans_visualizations(df: pd.DataFrame) -> Dict[str, str]:
 
 def main() -> None:
     """Main function to run the K-means visualization process."""
-    file_path: str = "results_summary.csv"
+    file_path: str = "results.csv"
 
     try:
         # Load the results_summary.csv file
         df: pd.DataFrame = load_csv(file_path)
-        print("results_summary.py file loaded successfully!")
+        print("results.py file loaded successfully!")
 
         # Display dataframe information
         display_dataframe_info(df)
