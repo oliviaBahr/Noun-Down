@@ -407,7 +407,7 @@ def save_all_visualizations(df: pd.DataFrame, column_name: str) -> Dict[str, str
 
 def main() -> None:
     """Main function to run the visualization process."""
-    file_path: str = "results_summary.csv"
+    file_path: str = "results.csv"
 
     try:
         # Load the input file

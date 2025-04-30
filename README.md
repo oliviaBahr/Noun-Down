@@ -1,71 +1,23 @@
+# csv Visualization Setup
 
-The noun list
-https://www.desiquintans.com/nounlist
+This project is set up to visualize CSV data using Polars, Matplotlib, and Seaborn.
 
-The pluralizer
-https://github.com/plurals/pluralize
-https://pypi.org/project/pluralizer/
+## Dependencies Installed
+- polars: Fast DataFrame library (similar to pandas)
+- matplotlib: Basic plotting library
+- seaborn: Statistical data visualization
+- numpy: Numerical computing library
 
-- behaves correctly when the plural is the same as the singular
-- Just adds an 's' for singularia tantum nouns (so grammar model correctly identifies it as wrong)
 
-```python
-print("Homework", end=" -> ")
-print(pluralizer.pluralize("homework"))
-print("Furniture", end=" -> ")
-print(pluralizer.pluralize("furniture"))
+echo "===================================================="
+echo "Setup complete! Virtual environment is now activated."
+echo "You can run your visualization script now."
+echo "===================================================="
 
-# Homework -> homework
-# Furniture -> furnitures
-```
-
-Inflections
-https://github.com/jaraco/inflect
-
-## Visualizations
-
-### General statistics of the nouns
-
-#### a) Make the installation script executable.
-
-```bash
-chmod +x install_dependencies.sh
-```
-
-#### b) Install the necessary dependencies.
-
-```bash
-./install_dependencies.sh
-```
-
-#### c) Activate the virtual environment:
-
-```bash
-source venv/bin/activate
-```
-
-#### d) Run the visualization script:
-
-```bash
-python visualizations.py
-```
-
-#### e) When prompted, enter the column name you want to visualize.
-
-#### f) Deactivate the virtual environment.
-
-```bash
-deactivate
-```
-
-### K-means 
-
-Repeat steps a) - c)
-
-#### d) Run the visualization script:
-
-```bash
-python kmeans_visualization.py
-```
-
-Repeat steps e) & f)
+# Usage instructions
+echo "To use the visualization script:"
+echo "1. Make sure the results_summary.py file is accessible"
+echo "2. Run the Python script with: python visualizations.py"
+echo "3. Follow the prompts to select a column for visualization"
+echo ""
+echo "When you're done, deactivate the virtual environment with: deactivate"

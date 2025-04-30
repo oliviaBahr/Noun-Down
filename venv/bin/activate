@@ -39,10 +39,10 @@ deactivate nondestructive
 if [ "${OSTYPE:-}" = "cygwin" ] || [ "${OSTYPE:-}" = "msys" ] ; then
     # transform D:\path\to\venv to /d/path/to/venv on MSYS
     # and to /cygdrive/d/path/to/venv on Cygwin
-    export VIRTUAL_ENV=$(cygpath "/Users/juanvasquez/Library/Mobile Documents/com~apple~CloudDocs/02_reference_docs/cursos_seminarios_talleres_summerschools/ling_7800_lexical_semantics/project/Noun-Down/venv")
+    export VIRTUAL_ENV=$(cygpath "/Users/juanvasquez/Library/Mobile Documents/com~apple~CloudDocs/02_reference_docs/cursos_seminarios_talleres_summerschools/ling_7800_lexical_semantics/project/ling_7800_lexical_semantics_final_project_repo/venv")
 else
     # use the path as-is
-    export VIRTUAL_ENV="/Users/juanvasquez/Library/Mobile Documents/com~apple~CloudDocs/02_reference_docs/cursos_seminarios_talleres_summerschools/ling_7800_lexical_semantics/project/Noun-Down/venv"
+    export VIRTUAL_ENV="/Users/juanvasquez/Library/Mobile Documents/com~apple~CloudDocs/02_reference_docs/cursos_seminarios_talleres_summerschools/ling_7800_lexical_semantics/project/ling_7800_lexical_semantics_final_project_repo/venv"
 fi
 
 _OLD_VIRTUAL_PATH="$PATH"

@@ -1,5 +1,5 @@
 #!/bin/sh
-'''exec' "/Users/juanvasquez/Library/Mobile Documents/com~apple~CloudDocs/02_reference_docs/cursos_seminarios_talleres_summerschools/ling_7800_lexical_semantics/project/Noun-Down/venv/bin/python3" "$0" "$@"
+'''exec' "/Users/juanvasquez/Library/Mobile Documents/com~apple~CloudDocs/02_reference_docs/cursos_seminarios_talleres_summerschools/ling_7800_lexical_semantics/project/ling_7800_lexical_semantics_final_project_repo/venv/bin/python3" "$0" "$@"
 ' '''
 # -*- coding: utf-8 -*-
 import re

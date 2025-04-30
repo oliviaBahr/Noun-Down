@@ -33,7 +33,7 @@ end
 # Unset irrelevant variables.
 deactivate nondestructive
 
-set -gx VIRTUAL_ENV "/Users/juanvasquez/Library/Mobile Documents/com~apple~CloudDocs/02_reference_docs/cursos_seminarios_talleres_summerschools/ling_7800_lexical_semantics/project/Noun-Down/venv"
+set -gx VIRTUAL_ENV "/Users/juanvasquez/Library/Mobile Documents/com~apple~CloudDocs/02_reference_docs/cursos_seminarios_talleres_summerschools/ling_7800_lexical_semantics/project/ling_7800_lexical_semantics_final_project_repo/venv"
 
 set -gx _OLD_VIRTUAL_PATH $PATH
 set -gx PATH "$VIRTUAL_ENV/bin" $PATH
