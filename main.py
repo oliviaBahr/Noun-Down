@@ -31,7 +31,7 @@ def get_nouns(filename: str) -> List[str]:
 @dataclass
 class ScoringConfig:
     polarity: Literal["reward", "punish"] = "reward"
-    labels: List[str] = field(default_factory=lambda: ["grammatical"])
+    label: str = "grammatical"
     combination_mode: Literal["mean", "sum"] = "mean"
 
 
@@ -54,7 +54,7 @@ NOUN_TESTS: List[NounTest] = [
     ),
     NounTest(
         test_type="Pluralia Tantum",
-        scoring_config=ScoringConfig("punish", ["ungrammatical"]),
+        scoring_config=ScoringConfig("punish", "ungrammatical"),
         test_funcs=[
             lambda noun: f"That {noun} is hers",
             lambda noun: f"That {noun} belongs to her",
@@ -62,7 +62,7 @@ NOUN_TESTS: List[NounTest] = [
     ),
     NounTest(
         test_type="Singularia Tantum",
-        scoring_config=ScoringConfig("punish", ["ungrammatical"]),
+        scoring_config=ScoringConfig("punish", "ungrammatical"),
         test_funcs=[
             lambda noun: f"Those {inflect.plural_noun(noun)} are hers",
             lambda noun: f"Those {inflect.plural_noun(noun)} belong to her",
@@ -103,12 +103,12 @@ NOUN_TESTS: List[NounTest] = [
             lambda noun: f"I want to {noun} this thing",
             lambda noun: f"I will {noun} her something tomorrow",
         ],
-        scoring_config=ScoringConfig("punish", ["grammatical"], combination_mode="sum"),
+        scoring_config=ScoringConfig("punish", "grammatical", combination_mode="sum"),
     ),
     NounTest(
         test_type="Derived",
         pipeline="zero-shot",
-        scoring_config=ScoringConfig("reward", ["no_suffix"]),
+        scoring_config=ScoringConfig("reward", "no_suffix"),
         label_candidates=["contains_suffix", "no_suffix"],
         test_funcs=[
             lambda noun: f"Input word: {noun}",
@@ -117,7 +117,7 @@ NOUN_TESTS: List[NounTest] = [
     NounTest(
         test_type="Usually Verb",
         pipeline="zero-shot",
-        scoring_config=ScoringConfig("punish", ["usually_verb"]),
+        scoring_config=ScoringConfig("punish", "usually_verb"),
         label_candidates=["usually_verb", "usually_noun"],
         test_funcs=[
             lambda noun: f"Is the input word usually a noun or usually a verb: {noun}",
@@ -223,7 +223,7 @@ class Tester:
             # filter predictions
             predictions = zip(row["pred_labels"], row["pred_scores"])
             counted_predictions = list(
-                filter(lambda ls: ls[0] in scoring_config.labels and ls[1] >= 0.5, predictions)
+                filter(lambda ls: ls[0] == scoring_config.label and ls[1] >= 0.5, predictions)
             )
             assert len(counted_predictions) <= 1, f"Multiple positive labels: {row['pred_labels']}"
 
